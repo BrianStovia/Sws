@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
-# ========================================================
-# Credit Code By FN Project
-# Author: Rerechan02 (DindaPutriFN)
-# License: This configuration is licensed for personal or internal use only.
-#          Redistribution, resale, or reuse of this code in any form
-#          without explicit written permission from the author is prohibited.
-#          Selling this code or its derivatives is strictly forbidden.
-# ========================================================
+
 
 # Clear SUDO_USER to bypass acme.sh warnings under sudo
 export SUDO_USER=""
@@ -636,6 +629,43 @@ iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 2080
 iptables -t nat -A PREROUTING -p udp --dport 80 -j REDIRECT --to-port 36712
 
 iptables-save > /etc/iptables/rules.v4
+
+# Setup WireGuard VPN
+echo "Installing and configuring WireGuard..."
+apt install wireguard wireguard-tools qrencode -y
+mkdir -p /etc/wireguard
+chmod 700 /etc/wireguard
+
+# Enable IPv4 routing/forwarding
+sysctl_optimize "net.ipv4.ip_forward" "1"
+sysctl -p
+
+# Get main network interface
+primary_interface=$(ip route | grep default | awk '{print $5}')
+
+# Generate Server Keys if they don't exist
+if [ ! -f "/etc/wireguard/private.key" ]; then
+    wg genkey | tee /etc/wireguard/private.key | wg pubkey > /etc/wireguard/public.key
+    chmod 600 /etc/wireguard/private.key /etc/wireguard/public.key
+fi
+
+server_priv=$(cat /etc/wireguard/private.key)
+
+# Create Server Configuration
+cat > /etc/wireguard/wg0.conf << END
+[Interface]
+Address = 10.22.0.1/24
+SaveConfig = true
+PrivateKey = ${server_priv}
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ${primary_interface} -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ${primary_interface} -j MASQUERADE
+END
+
+systemctl daemon-reload
+systemctl enable wg-quick@wg0
+systemctl restart wg-quick@wg0
+
 
 clear
 # rm -f /root/* # Disabled to protect local files and workspace from accidental deletion

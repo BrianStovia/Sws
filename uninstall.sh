@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# ========================================================
-# Uninstaller Script By FN Project
-# Author: Rerechan02 (DindaPutriFN)
-# License: This configuration is licensed for personal or internal use only.
-# ========================================================
 
 # Define Colors
 red="\e[1;31m"
