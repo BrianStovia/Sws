@@ -32,6 +32,7 @@ services=(
     "badvpn"
     "noobzvpns"
     "danted"
+    "microsocks"
     "nginx"
     "sslh"
     "v2ray"
@@ -68,6 +69,7 @@ service_files=(
     "/etc/systemd/system/udp-custom.service"
     "/etc/systemd/system/noobzvpns.service"
     "/etc/systemd/system/badvpn.service"
+    "/etc/systemd/system/microsocks.service"
 )
 
 for file in "${service_files[@]}"; do
@@ -141,7 +143,6 @@ fi
 echo -e "${blue}[7/8] Menghapus file dan folder konfigurasi...${NC}"
 folders=(
     "/usr/local/sbin/api"
-    "/usr/local/sbin"
     "/etc/udp"
     "/usr/local/etc/v2ray"
     "/etc/noobzvpns"
@@ -162,6 +163,12 @@ files=(
     "/usr/local/bin/badvpn"
     "/usr/bin/noobzvpns"
     "/usr/bin/vpn_telegram_bot.py"
+    "/usr/local/sbin/add-ssh"
+    "/usr/local/sbin/bot-menu"
+    "/usr/local/sbin/menu"
+    "/usr/local/sbin/menu-ssh"
+    "/usr/local/sbin/vpn_telegram_bot.py"
+    "/usr/local/sbin/xp"
     "/etc/issue.net"
     "/root/.ip"
 )
@@ -175,7 +182,7 @@ done
 
 # 8. Purge installed packages (Optional, keeps core packages to avoid breaking dependencies)
 echo -e "${blue}[8/8] Menghapus paket yang terpasang...${NC}"
-apt-get purge -y sslh dropbear dante-server &>/dev/null
+apt-get purge -y sslh dropbear dante-server microsocks &>/dev/null
 apt-get autoremove -y &>/dev/null
 
 echo -e "${yellow}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

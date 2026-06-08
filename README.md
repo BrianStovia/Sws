@@ -1,4 +1,44 @@
+# 🤖 VPN Seller & Autoscript Manager
 
+Autoscript premium berbasis Linux (Ubuntu/Debian) untuk otomatisasi instalasi layanan VPN/SSH tunnel, dilengkapi dengan menu CLI interaktif serta **Telegram Seller Bot Panel** untuk manajemen akun pelanggan secara langsung melalui chat Telegram.
+
+---
+
+## 🚀 Fitur Utama
+
+### 1. Layanan VPN & Tunneling
+* **SSH & OpenVPN**: Port standar & HTTP WebSocket.
+* **V2Ray / Xray Core**: VMess, VLess, dan Trojan (melalui TLS/gRPC).
+* **NoobzVPN**: Protokol tunnel modern berkecepatan tinggi dengan limitasi bandwidth & device.
+* **UDP Custom**: Mendukung koneksi UDP/Payload bypass.
+* **SSLH Multiplexer**: Pembagi trafik port 443 ke Nginx, V2ray, dan SSH.
+* **Google TCP BBR**: Optimasi TCP Bottleneck Bandwidth untuk throughput maksimal.
+* **ZeroSSL / Let's Encrypt Fallback**: Pembuatan sertifikat otomatis dengan metode fallback mandiri untuk mencegah rate limit.
+
+### 2. Telegram Bot Panel (Untuk Seller/Reseller)
+Bot Daemon Python (`vpn-bot.service`) yang berjalan di latar belakang untuk melayani pembuatan akun secara real-time:
+* **Pembuatan Akun Instan**: Dukungan pembuatan SSH, VMess, VLess, Trojan, dan NoobzVPN.
+* **Monitoring Status**: Menampilkan statistik CPU, RAM, Disk, dan status keaktifan service VPS.
+* **Manajemen Reseller**: Menambah, menghapus, atau melihat daftar Seller yang berhak menggunakan bot (Khusus Owner).
+
+---
+
+## 📂 Struktur Workspace
+
+```text
+f:/s/
+├── install.sh                  # Script Auto-Installer utama untuk VPS
+├── nginx.conf                  # Konfigurasi reverse proxy Nginx
+├── issue.net                   # Banner login SSH premium (HTML/Catppuccin theme)
+├── config.json                 # Konfigurasi inti V2Ray / Xray Core
+├── main.zip                    # Bundel zip semua script sbin yang dikirim ke VPS
+└── extracted_main/             # Source code script CLI & Telegram Bot
+    ├── menu                    # Menu CLI utama (dipanggil dengan perintah 'menu')
+    ├── bot-menu                # CLI konfigurasi Bot Telegram (Opsi 6 di menu)
+    ├── vpn_telegram_bot.py     # Python Daemon Bot Telegram
+    ├── add-ssh / add-vmess...   # Script pembuatan akun VPN individual
+    └── api/                    # API endpoints pembuatan akun via REST API
+```
 
 ---
 
@@ -66,24 +106,39 @@ Berikut adalah perintah-perintah yang dapat dikirimkan ke Bot Telegram setelah d
 * `/delseller <chat_id>` — Menghapus akses Seller berdasarkan Chat ID.
 * `/listsellers` — Menampilkan semua daftar Seller terdaftar.
 
+## 🗑️ Uninstall Autoscript
+
+Jika Anda ingin menghapus seluruh instalasi autoscript dan mengembalikan konfigurasi VPS Anda ke kondisi semula, silakan jalankan script uninstaller berikut dengan hak akses root:
+```bash
+wget -O uninstall.sh "https://raw.githubusercontent.com/BrianStovia/Sws/main/uninstall.sh"
+chmod +x uninstall.sh
+./uninstall.sh
+```
+Script ini akan membersihkan seluruh systemd service, membatalkan pengalihan aturan `iptables`, memulihkan konfigurasi SSH default, dan menghapus seluruh file binary terkait secara bersih.
+
 ---
 
 ## 🔍 Troubleshooting (Pemecahan Masalah)
 
-### Bot Telegram Tidak Merespons?
-1. Periksa status service bot di terminal VPS:
-   ```bash
-   sudo systemctl status vpn-bot
-   ```
-2. Baca log kesalahan secara detail:
-   ```bash
-   sudo journalctl -u vpn-bot -n 50 --no-pager
-   ```
-3. **Error `HTTP Error 401: Unauthorized`**:
-   Token Bot yang Anda masukkan salah atau sudah hangus. Jalankan kembali `menu` -> opsi `06` -> opsi `1` untuk memasukkan token baru yang valid dari @BotFather.
-4. **Error `Permission Denied`**:
-   Semua script di bawah `/usr/local/sbin/` harus memiliki hak akses eksekusi. Jalankan perintah ini untuk memperbaikinya:
-   ```bash
-   sudo chmod +x /usr/local/sbin/*
-   sudo chmod +x /usr/local/sbin/api/*
-   ```
+### 1. Bot Telegram Tidak Merespons?
+* Periksa status service bot di terminal VPS:
+  ```bash
+  sudo systemctl status vpn-bot
+  ```
+* Baca log kesalahan secara detail:
+  ```bash
+  sudo journalctl -u vpn-bot -n 50 --no-pager
+  ```
+* **Error `HTTP Error 401: Unauthorized`**:
+  Token Bot yang Anda masukkan salah atau sudah hangus. Jalankan kembali `menu` -> opsi `06` -> opsi `1` untuk memasukkan token baru yang valid dari @BotFather.
+
+### 2. Penanganan Package Dante-Server yang Hilang di Debian 13 (Trixie)
+* Package `dante-server` resmi dihapus dari Debian 13 (Trixie). Installer kami secara cerdas mendeteksi kegagalan instalasi Dante dan melakukan **fallback otomatis** dengan memasang service **`microsocks`** pada port `1080`, menjamin kestabilan fungsionalitas SOCKS5 Anda tetap berjalan tanpa error.
+
+### 3. Masalah `menu: command not found`
+* Kami telah menambahkan otomatisasi pembuatan symlink script dari `/usr/local/sbin/*` ke `/usr/bin/` saat proses instalasi. Ini memastikan perintah `menu`, `bot-menu`, `xp`, dll., selalu dapat diakses secara global di system PATH, bahkan pada VPS dengan instalasi OS minimal/bersih.
+* Jika Anda masih mengalami masalah izin akses, pastikan hak akses eksekusi diatur dengan benar:
+  ```bash
+  sudo chmod +x /usr/local/sbin/*
+  sudo chmod +x /usr/local/sbin/api/*
+  ```
