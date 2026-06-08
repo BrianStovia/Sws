@@ -733,8 +733,8 @@ Address = 10.22.0.1/24
 SaveConfig = true
 PrivateKey = ${server_priv}
 ListenPort = 51820
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ${primary_interface} -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ${primary_interface} -j MASQUERADE
+PostUp = iptables -A FORWARD -i wg0 -o ${primary_interface} -j ACCEPT; iptables -A FORWARD -i ${primary_interface} -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -A POSTROUTING -o ${primary_interface} -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -o ${primary_interface} -j ACCEPT; iptables -D FORWARD -i ${primary_interface} -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -D POSTROUTING -o ${primary_interface} -j MASQUERADE
 END
 
 systemctl daemon-reload

@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# ========================================================
+# Credit Code By Project Rerechan
+# Author: Rerechan02 (DindaPutriFN)
+# ========================================================
+
+telegram_bot_token=$(cat /usr/local/etc/v2ray/bot.key 2>/dev/null)
+telegram_chatid=$(cat /usr/local/etc/v2ray/client.id 2>/dev/null)
+domain=$(cat /usr/local/etc/v2ray/domain 2>/dev/null)
+
+if [[ -s /root/.ip ]]; then
+    ip=$(cat /root/.ip)
+else
+    ip=$(hostname -I | awk '{print $1}')
+fi
+
+clear
+
+# Check if Wireguard is installed
+if [ ! -d "/etc/wireguard" ]; then
+    echo "WireGuard is not installed on this VPS!"
+    exit 1
+fi
+
+until [[ $user =~ ^[a-zA-Z0-9_]+$ && ${client_exists} == '0' ]]; do
+    echo -e "───────────────────────────"
+    echo -e "  Add WireGuard Account   "
+    echo -e "───────────────────────────"
+    read -rp "User: " -e user
+    
+    if grep -q "#& ${user} " /etc/wireguard/wg0.conf 2>/dev/null; then
+        client_exists="1"
+    else
+        client_exists="0"
+    fi
+
+    if [[ ${client_exists} == '1' ]]; then
+        clear
+        echo -e "───────────────────────────"
+        echo -e "  Add WireGuard Account   "
+        echo -e "───────────────────────────"
+        echo ""
+        echo "Username already exists, please choose another name."
+        echo ""
+        echo -e "───────────────────────────"
+    fi
+done
+
+read -p "Expired (days): " masaaktif
+
+# Calculate IP and key details
+server_pub=$(cat /etc/wireguard/public.key)
+client_priv=$(wg genkey)
+client_pub=$(echo "$client_priv" | wg pubkey)
+client_psk=$(wg genpsk)
+
+# Find next available IP
+for i in {2..254}; do
+    if ! grep -q "10.22.0.${i}/32" /etc/wireguard/wg0.conf; then
+        client_ip="10.22.0.${i}"
+        break
+    fi
+done
+
+if [[ -z "$client_ip" ]]; then
+    echo "Error: No available IP addresses in 10.22.0.0/24 pool!"
+    exit 1
+fi
+
+exp=$(date -d "$masaaktif days" +"%Y-%m-%d")
+
+# Add peer configuration
+echo -e "\n#& ${user} ${exp}" >> /etc/wireguard/wg0.conf
+echo -e "[Peer]" >> /etc/wireguard/wg0.conf
+echo -e "PublicKey = ${client_pub}" >> /etc/wireguard/wg0.conf
+echo -e "PresharedKey = ${client_psk}" >> /etc/wireguard/wg0.conf
+echo -e "AllowedIPs = ${client_ip}/32" >> /etc/wireguard/wg0.conf
+
+# Reload WireGuard
+wg syncconf wg0 <(wg-quick strip wg0)
+
+# Create config file for download
+mkdir -p /var/www/html
+conf_path="/var/www/html/wg-${user}.conf"
+
+cat <<EOF > "$conf_path"
+[Interface]
+PrivateKey = ${client_priv}
+Address = ${client_ip}/24
+DNS = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey = ${server_pub}
+PresharedKey = ${client_psk}
+Endpoint = ${domain:-$ip}:51820
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 20
+EOF
+
+# QR Code rendering
+clear
+echo -e "─────────────────────────────────────────────────────"
+echo -e "                WIREGUARD QR CODE"
+echo -e "─────────────────────────────────────────────────────"
+if command -v qrencode &>/dev/null; then
+    qrencode -t ansiutf8 < "$conf_path"
+else
+    echo "qrencode not installed, cannot display QR code."
+fi
+echo -e "─────────────────────────────────────────────────────"
+echo -e "             WIREGUARD CONFIGURATION"
+echo -e "─────────────────────────────────────────────────────"
+cat "$conf_path"
+echo -e "─────────────────────────────────────────────────────"
+
+# Print details
+echo ""
+echo -e "─────────────────────────────────────────────────────"
+echo -e "              WIREGUARD ACCOUNT INFO"
+echo -e "─────────────────────────────────────────────────────"
+echo -e " Remarks     : ${user}"
+echo -e " IP Address  : ${client_ip}"
+echo -e " Port        : 51820"
+echo -e " Expired On  : ${exp}"
+echo -e " Config Link : http://${domain:-$ip}/wg-${user}.conf"
+echo -e "─────────────────────────────────────────────────────"
+
+# Send notification if Telegram configured
+if [[ -n "$telegram_bot_token" && -n "$telegram_chatid" ]]; then
+    TEKS=$(cat <<EOF
+<b>───────────────────</b>
+  WIREGUARD ACCOUNT  
+<b>───────────────────</b>
+<b>Remarks     : </b><code>${user}</code>
+<b>IP Address  : </b><code>${client_ip}</code>
+<b>Port        : </b><code>51820</code>
+<b>Expired On  : </b><code>${exp}</code>
+<b>Config Link : </b>http://${domain:-$ip}/wg-${user}.conf
+<b>───────────────────</b>
+EOF
+)
+    curl -s -X POST "https://api.telegram.org/bot$telegram_bot_token/sendMessage" \
+        -d "chat_id=$telegram_chatid" \
+        -d "parse_mode=HTML" \
+        --data-urlencode "text=$TEKS" > /dev/null
+fi
+
+read -n 1 -s -r -p "Press any key to go back..."
+menu-wg
