@@ -405,7 +405,7 @@ Description=UDP Custom by ePro Dev. Team and modify by FN Project
 [Service]
 User=root
 Type=simple
-ExecStart=/etc/udp/udp-custom server -exclude 7300
+ExecStart=/etc/udp/udp-custom server --config /etc/udp/config.json --exclude 7300,51820
 WorkingDirectory=/etc/udp/
 Restart=always
 RestartSec=2s
