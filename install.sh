@@ -539,6 +539,7 @@ systemctl restart proxy
 # Setup Stunnel4
 echo "Installing and configuring Stunnel4..."
 apt install stunnel4 -y
+mkdir -p /etc/stunnel
 cat > /etc/stunnel/stunnel.conf << END
 pid = /var/run/stunnel4.pid
 cert = /usr/local/etc/v2ray/v2ray.crt
@@ -560,6 +561,64 @@ sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
 systemctl daemon-reload
 systemctl enable stunnel4
 systemctl restart stunnel4
+
+# Setup Fail2Ban
+echo "Installing and configuring Fail2Ban..."
+apt install fail2ban -y
+cat > /etc/fail2ban/jail.local << END
+[DEFAULT]
+bantime = 10m
+findtime = 10m
+maxretry = 5
+backend = systemd
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port = 22,109,3303,990
+
+[dropbear]
+enabled = true
+port = 111,222,777
+END
+systemctl daemon-reload
+systemctl enable fail2ban
+systemctl restart fail2ban
+
+# Setup SSH Limit Daemon
+echo "Installing and configuring SSH Limit Daemon..."
+get_file "ssh-limit" "/usr/local/sbin/ssh-limit"
+chmod +x /usr/local/sbin/ssh-limit
+ln -sf /usr/local/sbin/ssh-limit /usr/bin/ssh-limit
+
+# Systemd Service and Timer for ssh-limit
+cat > /etc/systemd/system/ssh-limit.service << END
+[Unit]
+Description=SSH and VPN IP Limit Enforcer By rbstv
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ssh-limit
+END
+
+cat > /etc/systemd/system/ssh-limit.timer << END
+[Unit]
+Description=Run SSH Limit Enforcer Every Minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+END
+
+systemctl daemon-reload
+systemctl enable ssh-limit.timer
+systemctl start ssh-limit.timer
+
 
 
 # ===== IP Tables Main Port
