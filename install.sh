@@ -350,6 +350,9 @@ EOF
         systemctl daemon-reload
         systemctl enable microsocks
         systemctl start microsocks
+        # Maintain backward compatibility by symlinking danted.service to microsocks.service
+        ln -sf /etc/systemd/system/microsocks.service /etc/systemd/system/danted.service
+        systemctl daemon-reload
     else
         echo "Warning: Both dante-server and microsocks SOCKS5 proxies failed to install."
     fi
@@ -443,6 +446,9 @@ fi
 
 # Ensure V2Ray configuration directory exists
 mkdir -p /usr/local/etc/v2ray
+# Ensure V2Ray log directory exists
+mkdir -p /var/log/v2ray
+chown -R nobody /var/log/v2ray
 
 # Install Xray with retries
 echo "Installing Xray..."
@@ -462,6 +468,30 @@ done
 
 # Maintain backward compatibility for v2ray binary execution path
 ln -sf /usr/local/bin/xray /usr/local/bin/v2ray
+
+# Create v2ray.service wrapping xray-core for backward compatibility
+cat > /etc/systemd/system/v2ray.service << END
+[Unit]
+Description=V2Ray Service (Xray-core drop-in wrapper)
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/v2ray run -config /usr/local/etc/v2ray/config.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+END
+systemctl daemon-reload
+
 
 rm -f /usr/local/etc/v2ray/config.json
 get_file "config.json" "/usr/local/etc/v2ray/config.json"
