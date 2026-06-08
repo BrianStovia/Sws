@@ -77,6 +77,13 @@ systemctl daemon-reload
 
 # 3. Revert iptables Rules
 echo -e "${blue}[3/8] Menghapus aturan iptables...${NC}"
+primary_interface=$(ip route | grep default | awk '{print $5}')
+if [ -n "$primary_interface" ]; then
+    iptables -t nat -D PREROUTING -i $primary_interface -p tcp --dport 443 -j REDIRECT --to-port 2443 2>/dev/null
+    iptables -t nat -D PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712 2>/dev/null
+    iptables -t nat -D PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 2080 2>/dev/null
+    iptables -t nat -D PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712 2>/dev/null
+fi
 iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 2443 2>/dev/null
 iptables -t nat -D PREROUTING -p udp --dport 443 -j REDIRECT --to-port 36712 2>/dev/null
 iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 2080 2>/dev/null

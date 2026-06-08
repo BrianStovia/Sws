@@ -686,19 +686,22 @@ systemctl start ssh-limit.timer
 
 
 
+# Get main network interface
+primary_interface=$(ip route | grep default | awk '{print $5}')
+
 # ===== IP Tables Main Port
 
 # Redirect TCP 443 ke TCP 2443
-iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 2443
+iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 443 -j REDIRECT --to-port 2443
 
 # Redirect UDP 443 ke UDP 36712
-iptables -t nat -A PREROUTING -p udp --dport 443 -j REDIRECT --to-port 36712
+iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712
 
 # Redirect TCP 80 ke TCP 2080
-iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 2080
+iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 2080
 
-# Redirect UDP 80 ke UDP 26712
-iptables -t nat -A PREROUTING -p udp --dport 80 -j REDIRECT --to-port 36712
+# Redirect UDP 80 ke UDP 36712
+iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712
 
 # Open TCP port 8443 for Xray Reality
 iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
@@ -714,9 +717,6 @@ chmod 700 /etc/wireguard
 # Enable IPv4 routing/forwarding
 sysctl_optimize "net.ipv4.ip_forward" "1"
 sysctl -p
-
-# Get main network interface
-primary_interface=$(ip route | grep default | awk '{print $5}')
 
 # Generate Server Keys if they don't exist
 if [ ! -f "/etc/wireguard/private.key" ]; then
