@@ -37,6 +37,7 @@ services=(
     "sslh"
     "v2ray"
     "dropbear"
+    "stunnel4"
 )
 
 echo -e "${blue}[1/8] Menghentikan dan menonaktifkan layanan...${NC}"
@@ -148,6 +149,7 @@ folders=(
     "/etc/noobzvpns"
     "/etc/api"
     "/root/.acme.sh"
+    "/etc/stunnel"
 )
 
 for folder in "${folders[@]}"; do
@@ -182,7 +184,7 @@ done
 
 # 8. Purge installed packages (Optional, keeps core packages to avoid breaking dependencies)
 echo -e "${blue}[8/8] Menghapus paket yang terpasang...${NC}"
-apt-get purge -y sslh dropbear dante-server microsocks &>/dev/null
+apt-get purge -y sslh dropbear dante-server microsocks stunnel4 &>/dev/null
 apt-get autoremove -y &>/dev/null
 
 echo -e "${yellow}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

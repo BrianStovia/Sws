@@ -216,9 +216,9 @@ DROPBEAR_RECEIVE_WINDOW=65536
 END
 echo "/bin/false" >> /etc/shells
 echo "/usr/sbin/nologin" >> /etc/shells
-clear
 systemctl daemon-reload
-/etc/init.d/dropbear restart
+systemctl enable dropbear
+systemctl restart dropbear
 clear
 
 # Save Data IP
@@ -535,6 +535,32 @@ systemctl restart sslh
 systemctl enable proxy
 systemctl start proxy
 systemctl restart proxy
+
+# Setup Stunnel4
+echo "Installing and configuring Stunnel4..."
+apt install stunnel4 -y
+cat > /etc/stunnel/stunnel.conf << END
+pid = /var/run/stunnel4.pid
+cert = /usr/local/etc/v2ray/v2ray.crt
+key = /usr/local/etc/v2ray/v2ray.key
+
+[dropbear_222]
+accept = 0.0.0.0:222
+connect = 127.0.0.1:111
+
+[dropbear_777]
+accept = 0.0.0.0:777
+connect = 127.0.0.1:111
+
+[openssh_990]
+accept = 0.0.0.0:990
+connect = 127.0.0.1:22
+END
+sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
+systemctl daemon-reload
+systemctl enable stunnel4
+systemctl restart stunnel4
+
 
 # ===== IP Tables Main Port
 

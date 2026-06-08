@@ -53,8 +53,8 @@ class Server(threading.Thread):
                     continue
 
                 conn = ConnectionHandler(c, self, addr)
-                conn.start()
                 self.addConn(conn)
+                conn.start()
         finally:
             self.running = False
             self.soc.close()
@@ -70,7 +70,8 @@ class Server(threading.Thread):
 
     def removeConn(self, conn):
         with self.threadsLock:
-            self.threads.remove(conn)
+            if conn in self.threads:
+                self.threads.remove(conn)
 
     def close(self):
         self.running = False
