@@ -444,20 +444,46 @@ fi
 # Ensure V2Ray configuration directory exists
 mkdir -p /usr/local/etc/v2ray
 
-# Install V2Ray with retries
-echo "Installing V2Ray..."
+# Install Xray with retries
+echo "Installing Xray..."
 for i in {1..3}; do
-    if bash <(curl -L https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh); then
-        echo "V2Ray installed successfully!"
+    if bash <(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh); then
+        echo "Xray installed successfully!"
+        systemctl stop xray.service 2>/dev/null || true
+        systemctl disable xray.service 2>/dev/null || true
+        systemctl stop xray@.service 2>/dev/null || true
+        systemctl disable xray@.service 2>/dev/null || true
         break
     else
-        echo "V2Ray installation failed, retrying ($i/3)..."
+        echo "Xray installation failed, retrying ($i/3)..."
         sleep 3
     fi
 done
 
+# Maintain backward compatibility for v2ray binary execution path
+ln -sf /usr/local/bin/xray /usr/local/bin/v2ray
+
 rm -f /usr/local/etc/v2ray/config.json
 get_file "config.json" "/usr/local/etc/v2ray/config.json"
+
+# Configure VLESS Reality Server Keypair
+echo "Configuring Xray Reality..."
+reality_keys=$(/usr/local/bin/xray x25519)
+priv_key=$(echo "$reality_keys" | grep "PrivateKey:" | awk '{print $2}')
+pub_key=$(echo "$reality_keys" | grep "PublicKey" | awk '{print $3}')
+short_id=$(head /dev/urandom | tr -dc 'a-f0-9' | head -c 16)
+
+cat > /usr/local/etc/v2ray/reality.conf << END
+REALITY_PORT=8443
+REALITY_DEST=yahoo.com:443
+REALITY_SNI=yahoo.com,www.yahoo.com
+REALITY_PRIV=${priv_key}
+REALITY_PUB=${pub_key}
+REALITY_SID=${short_id}
+END
+
+sed -i "s/REALITY_PRIVATE_KEY/${priv_key}/g" /usr/local/etc/v2ray/config.json
+sed -i "s/REALITY_SHORT_ID/${short_id}/g" /usr/local/etc/v2ray/config.json
 
 # Setup NoobzVPNS
 clear
@@ -627,6 +653,9 @@ iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 2080
 
 # Redirect UDP 80 ke UDP 26712
 iptables -t nat -A PREROUTING -p udp --dport 80 -j REDIRECT --to-port 36712
+
+# Open TCP port 8443 for Xray Reality
+iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
 
 iptables-save > /etc/iptables/rules.v4
 
