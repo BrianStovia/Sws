@@ -15,6 +15,9 @@ export SUDO_USER=""
 green="\e[1;32m"
 NC="\e[0m"
 
+# Define Hosting
+hosting="https://raw.githubusercontent.com/BrianStovia/Sws/main"
+
 # Get directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -30,8 +33,16 @@ get_file() {
         echo "Using repository file file/${source_name}..."
         cp "${SCRIPT_DIR}/file/${source_name}" "${dest_path}"
     else
-        echo "Error: Local file '${source_name}' not found in workspace directory!"
-        exit 1
+        echo "Downloading ${source_name} from hosting..."
+        wget -q -O "${dest_path}" "${hosting}/${source_name}"
+        if [ $? -ne 0 ]; then
+            echo "Downloading ${source_name} from hosting/file..."
+            wget -q -O "${dest_path}" "${hosting}/file/${source_name}"
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to download ${source_name} from hosting!"
+                exit 1
+            fi
+        fi
     fi
 }
 
@@ -219,9 +230,10 @@ apt update -y
 apt install sslh -y
 
 # Main Menu
+mkdir -p /usr/local/sbin
 cd /usr/local/sbin
 get_file "main.zip" "m.zip"
-unzip m.zip
+unzip -o m.zip
 chmod +x *
 rm -f m.zip
 
@@ -252,6 +264,7 @@ chmod 755 sslh
 cd
 
 # Setup Rest Api
+mkdir -p /usr/local/sbin/api
 cd /usr/local/sbin/api
 chmod +x *
 cd
@@ -298,11 +311,11 @@ LimitNOFILE=1000000
 WantedBy=multi-user.target" > /etc/systemd/system/proxy.service
 
 # Setup Socks5 Proxy
-sudo apt install dante-server curl -y
-sudo touch /var/log/danted.log
-sudo chown root:root /var/log/danted.log
-primary_interface=$(ip route | grep default | awk '{print $5}')
-sudo bash -c "cat <<EOF > /etc/danted.conf
+if apt install dante-server -y 2>/dev/null; then
+    sudo touch /var/log/danted.log
+    sudo chown root:root /var/log/danted.log
+    primary_interface=$(ip route | grep default | awk '{print $5}')
+    sudo bash -c "cat <<EOF > /etc/danted.conf
 logoutput: /var/log/danted.log
 internal: 0.0.0.0 port = 1080
 external: $primary_interface
@@ -317,10 +330,37 @@ socks pass {
     log: connect disconnect error
 }
 EOF"
-sudo sed -i '/\[Service\]/a ReadWriteDirectories=/var/log' /usr/lib/systemd/system/danted.service
-sudo systemctl daemon-reload
-sudo systemctl restart danted
-sudo systemctl enable danted
+    if [ -f "/usr/lib/systemd/system/danted.service" ]; then
+        sudo sed -i '/\[Service\]/a ReadWriteDirectories=/var/log' /usr/lib/systemd/system/danted.service
+    elif [ -f "/lib/systemd/system/danted.service" ]; then
+        sudo sed -i '/\[Service\]/a ReadWriteDirectories=/var/log' /lib/systemd/system/danted.service
+    fi
+    sudo systemctl daemon-reload
+    sudo systemctl restart danted
+    sudo systemctl enable danted
+else
+    echo "dante-server not available. Installing microsocks SOCKS5 proxy instead..."
+    if apt install microsocks -y 2>/dev/null; then
+        cat <<EOF > /etc/systemd/system/microsocks.service
+[Unit]
+Description=MicroSocks SOCKS5 Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/microsocks -p 1080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl enable microsocks
+        systemctl start microsocks
+    else
+        echo "Warning: Both dante-server and microsocks SOCKS5 proxies failed to install."
+    fi
+fi
 
 # Setup Nginx
 apt install nginx -y
@@ -474,7 +514,7 @@ echo -e "${domain}" > /usr/local/etc/v2ray/domain
             /root/.acme.sh/acme.sh --issue -d $domain --standalone -k ec-256
         fi
     fi
-    ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /usr/local/etc/v2ray/v2ray.crt --keypath /usr/local/etc/v2ray/v2ray.key --ecc
+    /root/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /usr/local/etc/v2ray/v2ray.crt --keypath /usr/local/etc/v2ray/v2ray.key --ecc
 
 cd /root
 
