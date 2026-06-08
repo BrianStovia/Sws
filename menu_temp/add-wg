@@ -88,6 +88,7 @@ cat <<EOF > "$conf_path"
 PrivateKey = ${client_priv}
 Address = ${client_ip}/24
 DNS = 1.1.1.1, 8.8.8.8
+MTU = 1280
 
 [Peer]
 PublicKey = ${server_pub}
