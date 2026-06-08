@@ -503,15 +503,31 @@ priv_key=$(echo "$reality_keys" | grep "PrivateKey:" | awk '{print $2}')
 pub_key=$(echo "$reality_keys" | grep "PublicKey" | awk '{print $3}')
 short_id=$(head /dev/urandom | tr -dc 'a-f0-9' | head -c 16)
 
+echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+echo -e "$green       Configure Reality SNI         $NC"
+echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+read -p " Reality SNIs (comma-separated, Default: yahoo.com,www.yahoo.com) : " reality_sni
+if [[ -z "$reality_sni" ]]; then
+    reality_sni="yahoo.com,www.yahoo.com"
+fi
+
+first_sni=$(echo "$reality_sni" | cut -d',' -f1)
+reality_dest="${first_sni}:443"
+
 cat > /usr/local/etc/v2ray/reality.conf << END
 REALITY_PORT=8443
-REALITY_DEST=yahoo.com:443
-REALITY_SNI=yahoo.com,www.yahoo.com
+REALITY_DEST=${reality_dest}
+REALITY_SNI=${reality_sni}
 REALITY_PRIV=${priv_key}
 REALITY_PUB=${pub_key}
 REALITY_SID=${short_id}
 END
 
+# Convert comma-separated string to json format (e.g. "yahoo.com,www.yahoo.com" to "yahoo.com","www.yahoo.com")
+reality_snis_json=$(echo "$reality_sni" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')
+
+sed -i "s|REALITY_DEST|${reality_dest}|g" /usr/local/etc/v2ray/config.json
+sed -i "s|REALITY_SNIS|${reality_snis_json}|g" /usr/local/etc/v2ray/config.json
 sed -i "s/REALITY_PRIVATE_KEY/${priv_key}/g" /usr/local/etc/v2ray/config.json
 sed -i "s/REALITY_SHORT_ID/${short_id}/g" /usr/local/etc/v2ray/config.json
 

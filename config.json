@@ -198,11 +198,10 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "dest": "yahoo.com:443",
+          "dest": "REALITY_DEST",
           "xver": 0,
           "serverNames": [
-            "yahoo.com",
-            "www.yahoo.com"
+            REALITY_SNIS
           ],
           "privateKey": "REALITY_PRIVATE_KEY",
           "minClientVer": "",
