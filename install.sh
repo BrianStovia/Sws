@@ -763,8 +763,8 @@ Address = 10.22.0.1/24
 SaveConfig = true
 PrivateKey = ${server_priv}
 ListenPort = 51820
-PostUp = sysctl -w net.ipv4.ip_forward=1; iptables -A FORWARD -i wg0 -o \$(ip route | grep default | awk '{print \$5}') -j ACCEPT; iptables -A FORWARD -i \$(ip route | grep default | awk '{print \$5}') -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -A POSTROUTING -o \$(ip route | grep default | awk '{print \$5}') -j MASQUERADE; iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-PostDown = iptables -D FORWARD -i wg0 -o \$(ip route | grep default | awk '{print \$5}') -j ACCEPT; iptables -D FORWARD -i \$(ip route | grep default | awk '{print \$5}') -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -D POSTROUTING -o \$(ip route | grep default | awk '{print \$5}') -j MASQUERADE; iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+PostUp = sysctl -w net.ipv4.ip_forward=1; iptables -A FORWARD -i wg0 -o ${primary_interface} -j ACCEPT; iptables -A FORWARD -i ${primary_interface} -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -A POSTROUTING -o ${primary_interface} -j MASQUERADE; iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+PostDown = iptables -D FORWARD -i wg0 -o ${primary_interface} -j ACCEPT; iptables -D FORWARD -i ${primary_interface} -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -D POSTROUTING -o ${primary_interface} -j MASQUERADE; iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 MTU = 1420
 END
 
