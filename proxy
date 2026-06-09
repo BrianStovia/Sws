@@ -256,15 +256,7 @@ class ConnectionHandler(threading.Thread):
                 except:
                     pass
                 
-                # Filter out any injected fake HTTP response/request payloads in leftover
-                if leftover:
-                    leftover_lower = leftover.lower()
-                    if b'http/' in leftover_lower or b'get ' in leftover_lower or b'post ' in leftover_lower:
-                        actual_ssh_idx = leftover_lower.find(b'ssh-')
-                        if actual_ssh_idx != -1:
-                            leftover = leftover[actual_ssh_idx:]
-                        else:
-                            leftover = b''
+
                 
                 # Send any leftover data to target
                 if leftover:
