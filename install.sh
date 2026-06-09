@@ -749,8 +749,8 @@ chmod +x /usr/sbin/dns-server
 # Generate key pair
 /usr/sbin/dns-server -gen-key -privkey-file /etc/slowdns/server.key -pubkey-file /etc/slowdns/server.pub
 
-# Create Systemd Service for dnstt
-cat > /etc/systemd/system/dnstt.service << EOF
+# Create Systemd Service for client-sldns (SlowDNS)
+cat > /etc/systemd/system/client-sldns.service << EOF
 [Unit]
 Description=SlowDNS rbstv Autoscript Service
 After=network.target nss-lookup.target
@@ -759,7 +759,7 @@ After=network.target nss-lookup.target
 Type=simple
 User=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN
 NoNewPrivileges=true
 ExecStart=/usr/sbin/dns-server -udp :5300 -privkey-file /etc/slowdns/server.key ns.${domain} 127.0.0.1:111
 Restart=on-failure
@@ -768,8 +768,13 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
+# Create compatibility symlink for dnstt.service
+ln -sf /etc/systemd/system/client-sldns.service /etc/systemd/system/dnstt.service
+
 systemctl daemon-reload
+systemctl enable client-sldns
 systemctl enable dnstt
+systemctl restart client-sldns
 systemctl restart dnstt
 
 
@@ -779,23 +784,40 @@ primary_interface=$(ip route | grep default | awk '{print $5}')
 
 # ===== IP Tables Main Port
 
-# Redirect TCP 443 ke TCP 2443
-iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 443 -j REDIRECT --to-port 2443
+if [ -n "$primary_interface" ]; then
+    # Redirect TCP 443 ke TCP 2443
+    iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 443 -j REDIRECT --to-port 2443
 
-# Redirect UDP 443 ke UDP 36712
-iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712
+    # Redirect UDP 443 ke UDP 36712
+    iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712
 
-# Redirect TCP 80 ke TCP 700 (Python Proxy) untuk bypass Nginx
-iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 700
+    # Redirect TCP 80 ke TCP 700 (Python Proxy) untuk bypass Nginx
+    iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 700
 
-# Redirect UDP 80 ke UDP 36712
-iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712
+    # Redirect UDP 80 ke UDP 36712
+    iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712
+
+    # Redirect UDP 53 ke UDP 5300 untuk SlowDNS
+    iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 53 -j REDIRECT --to-port 5300
+else
+    # Redirect TCP 443 ke TCP 2443
+    iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 2443
+
+    # Redirect UDP 443 ke UDP 36712
+    iptables -t nat -A PREROUTING -p udp --dport 443 -j REDIRECT --to-port 36712
+
+    # Redirect TCP 80 ke TCP 700 (Python Proxy) untuk bypass Nginx
+    iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 700
+
+    # Redirect UDP 80 ke UDP 36712
+    iptables -t nat -A PREROUTING -p udp --dport 80 -j REDIRECT --to-port 36712
+
+    # Redirect UDP 53 ke UDP 5300 untuk SlowDNS
+    iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 5300
+fi
 
 # Open TCP port 8443 for Xray Reality
 iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
-
-# Redirect UDP 53 ke UDP 5300 untuk SlowDNS
-iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 53 -j REDIRECT --to-port 5300
 
 # Open UDP port 5300 for SlowDNS
 iptables -A INPUT -p udp --dport 5300 -j ACCEPT

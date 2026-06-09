@@ -259,7 +259,7 @@ class ConnectionHandler(threading.Thread):
                 # Force target to localhost to avoid open-proxy abuse while parsing target port
                 _, _, port = hostPort.partition(':')
                 port = port or '109'
-                if port not in ['22', '109', '111', '3303']:
+                if port not in ['22', '109', '110', '111', '143', '3303']:
                     port = '109'
                 target_host = f'127.0.0.1:{port}'
                 
@@ -291,7 +291,7 @@ class ConnectionHandler(threading.Thread):
                             magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
                             accept_val = base64.b64encode(hashlib.sha1((sec_ws_key + magic).encode()).digest()).decode()
                             dyn_response = (
-                                b'HTTP/1.1 101 Switching Protocols\r\n'
+                                b'HTTP/1.1 101 <b><i><font color="blue">Rerechan02</font></b> Switching Protocols\r\n'
                                 b'Upgrade: websocket\r\n'
                                 b'Connection: Upgrade\r\n'
                                 b'Server: rbstv-Proxy\r\n'
@@ -387,15 +387,6 @@ class ConnectionHandler(threading.Thread):
                 try:
                     data = in_.recv(BUFLEN)
                     if data:
-                        if in_ is self.client:
-                            if not ssh_established:
-                                data_lower = data.lower()
-                                if b'ssh-' in data_lower:
-                                    ssh_established = True
-                                    ssh_idx = data_lower.find(b'ssh-')
-                                    data = data[ssh_idx:]
-                                elif b'http/' in data_lower or b'get ' in data_lower or b'post ' in data_lower:
-                                    continue
                         (self.client if in_ is self.target else self.target).sendall(data)
                         count = 0
                     else:

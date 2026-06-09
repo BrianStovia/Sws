@@ -33,6 +33,8 @@ services=(
     "v2ray"
     "dropbear"
     "stunnel4"
+    "dnstt"
+    "client-sldns"
 )
 
 echo -e "${blue}[1/8] Menghentikan dan menonaktifkan layanan...${NC}"
@@ -66,6 +68,8 @@ service_files=(
     "/etc/systemd/system/noobzvpns.service"
     "/etc/systemd/system/badvpn.service"
     "/etc/systemd/system/microsocks.service"
+    "/etc/systemd/system/dnstt.service"
+    "/etc/systemd/system/client-sldns.service"
 )
 
 for file in "${service_files[@]}"; do
@@ -83,11 +87,14 @@ if [ -n "$primary_interface" ]; then
     iptables -t nat -D PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712 2>/dev/null
     iptables -t nat -D PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 2080 2>/dev/null
     iptables -t nat -D PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712 2>/dev/null
+    iptables -t nat -D PREROUTING -i $primary_interface -p udp --dport 53 -j REDIRECT --to-port 5300 2>/dev/null
 fi
 iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 2443 2>/dev/null
 iptables -t nat -D PREROUTING -p udp --dport 443 -j REDIRECT --to-port 36712 2>/dev/null
 iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 2080 2>/dev/null
 iptables -t nat -D PREROUTING -p udp --dport 80 -j REDIRECT --to-port 36712 2>/dev/null
+iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-port 5300 2>/dev/null
+iptables -D INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null
 if [ -f "/etc/iptables/rules.v4" ]; then
     iptables-save > /etc/iptables/rules.v4
 fi
