@@ -424,6 +424,20 @@ systemctl enable badvpn
 systemctl start badvpn
 systemctl restart badvpn
 
+# Setup Squid Proxy
+echo "Installing and configuring Squid Proxy..."
+apt install squid -y
+cat > /etc/squid/squid.conf << EOF
+http_port 8080
+http_port 3128
+acl SSH_ports port 22 90 109 111 3303
+http_access allow SSH_ports
+http_access deny all
+EOF
+systemctl daemon-reload
+systemctl enable squid
+systemctl restart squid
+
 # Setup UDP Custom
 rm -rf /etc/udp
 mkdir -p /etc/udp
@@ -771,8 +785,8 @@ iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 443 -j REDIRE
 # Redirect UDP 443 ke UDP 36712
 iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 443 -j REDIRECT --to-port 36712
 
-# Redirect TCP 80 ke TCP 2080
-iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 2080
+# Redirect TCP 80 ke TCP 700 (Python Proxy) untuk bypass Nginx
+iptables -t nat -A PREROUTING -i $primary_interface -p tcp --dport 80 -j REDIRECT --to-port 700
 
 # Redirect UDP 80 ke UDP 36712
 iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 80 -j REDIRECT --to-port 36712
