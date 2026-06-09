@@ -86,8 +86,6 @@ sed -i '/^MACs/d' sshd_config 2>/dev/null
 
 echo -e "UseDNS no" >> sshd_config
 echo -e "GSSAPIAuthentication no" >> sshd_config
-echo -e "Ciphers aes128-gcm@openssh.com,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com" >> sshd_config
-echo -e "MACs hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512-etm@openssh.com" >> sshd_config
 cd
 systemctl daemon-reload
 systemctl restart ssh
