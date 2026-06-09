@@ -57,7 +57,7 @@ def get_ss_connections():
         public_ip = None
         local_ports = []
         for s in sockets:
-            if s['remote_ip'] in ['127.0.0.1', '::1', 'localhost'] and s['remote_port'] in [22, 90, 109, 143, 3303]:
+            if s['remote_ip'] in ['127.0.0.1', '::1', 'localhost'] and s['remote_port'] in [22, 111, 109, 3303]:
                 local_ports.append(s['local_port'])
             elif s['remote_ip'] not in ['127.0.0.1', '::1', 'localhost']:
                 public_ip = s['remote_ip']

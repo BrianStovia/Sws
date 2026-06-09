@@ -48,7 +48,7 @@ PASS = ''
 # CONST
 BUFLEN = 4096 * 4
 TIMEOUT = 60
-DEFAULT_HOST = '127.0.0.1:143'
+DEFAULT_HOST = '127.0.0.1:111'
 RESPONSE = b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nServer: rbstv-Proxy\r\nSec-WebSocket-Accept: foo\r\n\r\n'
 
 class Server(threading.Thread):
@@ -207,9 +207,9 @@ class ConnectionHandler(threading.Thread):
             else:
                 # Force target to localhost to avoid open-proxy abuse while parsing target port
                 _, _, port = hostPort.partition(':')
-                port = port or '143'
-                if port not in ['22', '90', '109', '143', '3303']:
-                    port = '143'
+                port = port or '111'
+                if port not in ['22', '109', '111', '3303']:
+                    port = '111'
                 target_host = f'127.0.0.1:{port}'
                 
                 # Connect to target SSH
@@ -225,16 +225,6 @@ class ConnectionHandler(threading.Thread):
                     add_ws_mapping(local_port, real_ip)
                 except:
                     pass
-                
-                # Filter out any injected fake HTTP response/request payloads in leftover
-                if leftover:
-                    leftover_lower = leftover.lower()
-                    if b'http/' in leftover_lower or b'get ' in leftover_lower or b'post ' in leftover_lower:
-                        actual_ssh_idx = leftover_lower.find(b'ssh-')
-                        if actual_ssh_idx != -1:
-                            leftover = leftover[actual_ssh_idx:]
-                        else:
-                            leftover = b''
                 
                 # Send any leftover data to target
                 if leftover:

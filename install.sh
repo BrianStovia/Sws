@@ -217,10 +217,10 @@ cat>  /etc/default/dropbear << END
 
 NO_START=0
 # the TCP port that Dropbear listens on
-DROPBEAR_PORT=143
+DROPBEAR_PORT=111
 
 # any additional arguments for Dropbear
-DROPBEAR_EXTRA_ARGS="-p 90"
+#DROPBEAR_EXTRA_ARGS="-p 109 -p 69 "
 
 # specify an optional banner file containing a message to be
 # sent to clients before they connect, such as "/etc/issue.net"
@@ -653,11 +653,11 @@ key = /usr/local/etc/v2ray/v2ray.key
 
 [dropbear_222]
 accept = 0.0.0.0:222
-connect = 127.0.0.1:143
+connect = 127.0.0.1:111
 
 [dropbear_777]
 accept = 0.0.0.0:777
-connect = 127.0.0.1:143
+connect = 127.0.0.1:111
 
 [openssh_990]
 accept = 0.0.0.0:990
@@ -685,7 +685,7 @@ port = 22,109,3303,990
 
 [dropbear]
 enabled = true
-port = 90,143,222,777
+port = 111,222,777
 END
 systemctl daemon-reload
 systemctl enable fail2ban
@@ -749,7 +749,7 @@ User=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
-ExecStart=/usr/sbin/dns-server -udp :5300 -privkey-file /etc/slowdns/server.key ns.${domain} 127.0.0.1:143
+ExecStart=/usr/sbin/dns-server -udp :5300 -privkey-file /etc/slowdns/server.key ns.${domain} 127.0.0.1:111
 Restart=on-failure
 
 [Install]
