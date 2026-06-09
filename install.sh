@@ -303,7 +303,7 @@ After=syslog.target network-online.target
 [Service]
 User=root
 NoNewPrivileges=true
-ExecStart=/usr/local/bin/proxy
+ExecStart=/usr/bin/python3 -u /usr/local/bin/proxy
 Restart=on-failure
 RestartPreventExitStatus=23
 LimitNPROC=10000
