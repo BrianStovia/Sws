@@ -48,7 +48,7 @@ PASS = ''
 # CONST
 BUFLEN = 4096 * 4
 TIMEOUT = 60
-DEFAULT_HOST = '127.0.0.1:111'
+DEFAULT_HOST = '127.0.0.1:109'
 RESPONSE = b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nServer: rbstv-Proxy\r\nSec-WebSocket-Accept: foo\r\n\r\n'
 
 class Server(threading.Thread):
@@ -207,9 +207,9 @@ class ConnectionHandler(threading.Thread):
             else:
                 # Force target to localhost to avoid open-proxy abuse while parsing target port
                 _, _, port = hostPort.partition(':')
-                port = port or '111'
+                port = port or '109'
                 if port not in ['22', '109', '111', '3303']:
-                    port = '111'
+                    port = '109'
                 target_host = f'127.0.0.1:{port}'
                 
                 # Connect to target SSH
