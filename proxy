@@ -196,7 +196,7 @@ class ConnectionHandler(threading.Thread):
                 
                 try:
                     local_port = self.target.getsockname()[1]
-                    real_ip = self.findHeader(real_req, b'X-Real-IP') or self.findHeader(real_req, b'X-Forwarded-For')
+                    real_ip = self.findHeader(self.client_buffer, b'X-Real-IP') or self.findHeader(self.client_buffer, b'X-Forwarded-For')
                     if real_ip:
                         real_ip = real_ip.split(',')[0].strip()
                     else:
@@ -241,7 +241,7 @@ class ConnectionHandler(threading.Thread):
                 # Log and start forwarding
                 self.log += f' - CONNECT {target_host}'
                 self.server.printLog(self.log)
-                self.doCONNECT()
+                self.doCONNECT(ssh_established=(ssh_idx != -1))
         except Exception as e:
             self.server.printLog(f'Error: {e}')
         finally:
@@ -263,7 +263,7 @@ class ConnectionHandler(threading.Thread):
         self.target.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.targetClosed = False
 
-    def doCONNECT(self):
+    def doCONNECT(self, ssh_established=False):
         socs = [self.client, self.target]
         count = 0
         error_occurred = False
@@ -277,13 +277,13 @@ class ConnectionHandler(threading.Thread):
                     data = in_.recv(BUFLEN)
                     if data:
                         if in_ is self.client:
-                            # Filter out fake HTTP response/request payloads (e.g. HTTP/1.1 200 OK)
-                            data_lower = data.lower()
-                            if b'http/' in data_lower or b'get ' in data_lower or b'post ' in data_lower:
-                                ssh_idx = data_lower.find(b'ssh-')
-                                if ssh_idx != -1:
+                            if not ssh_established:
+                                data_lower = data.lower()
+                                if b'ssh-' in data_lower:
+                                    ssh_established = True
+                                    ssh_idx = data_lower.find(b'ssh-')
                                     data = data[ssh_idx:]
-                                else:
+                                elif b'http/' in data_lower or b'get ' in data_lower or b'post ' in data_lower:
                                     continue
                         (self.client if in_ is self.target else self.target).sendall(data)
                         count = 0
