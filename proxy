@@ -52,11 +52,12 @@ DEFAULT_HOST = '127.0.0.1:109'
 RESPONSE = b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nServer: rbstv-Proxy\r\nSec-WebSocket-Accept: foo\r\n\r\n'
 
 class Server(threading.Thread):
-    def __init__(self, host, port):
+    def __init__(self, host, port, use_ssl=False):
         super().__init__()
         self.running = False
         self.host = host
         self.port = port
+        self.use_ssl = use_ssl
         self.threads = []
         self.threadsLock = threading.Lock()
         self.logLock = threading.Lock()
@@ -69,11 +70,28 @@ class Server(threading.Thread):
         self.soc.listen(5)
         self.running = True
 
+        self.ssl_context = None
+        if self.use_ssl:
+            try:
+                import ssl
+                self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+                self.ssl_context.load_cert_chain(certfile='/usr/local/etc/v2ray/v2ray.crt', keyfile='/usr/local/etc/v2ray/v2ray.key')
+            except Exception as e:
+                self.printLog(f"Failed to load SSL context: {e}")
+                self.use_ssl = False
+
         try:
             while self.running:
                 try:
                     c, addr = self.soc.accept()
                     c.setblocking(1)
+                    if self.use_ssl and self.ssl_context:
+                        try:
+                            c = self.ssl_context.wrap_socket(c, server_side=True)
+                        except Exception as ssl_err:
+                            self.printLog(f"SSL handshake failed: {ssl_err}")
+                            c.close()
+                            continue
                 except socket.timeout:
                     continue
 
@@ -191,8 +209,31 @@ class ConnectionHandler(threading.Thread):
             hostPort = request_host or self.findHeader(self.client_buffer, b'X-Real-Host') or self.findHeader(self.client_buffer, b'Host') or DEFAULT_HOST
             passwd = self.findHeader(self.client_buffer, b'X-Pass')
  
+            # Determine if request has HTTP headers (not direct SSH)
+            is_http = any(m in self.client_buffer.lower() for m in [b'get ', b'post ', b'connect ', b'http/'])
+            
+            # Check if request is for V2Ray or Nginx backend paths
+            is_v2ray = False
+            if is_http:
+                first_line = self.client_buffer.split(b'\n')[0].decode(errors='ignore').strip()
+                first_line_parts = first_line.split()
+                path = ''
+                if len(first_line_parts) >= 2:
+                    path = first_line_parts[1].lower()
+                for v_path in ['/vmess', '/vless', '/trojan', '/noobz', '/api']:
+                    if path.startswith(v_path):
+                        is_v2ray = True
+                        break
+            
             if PASS and passwd != PASS:
                 self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
+            elif is_v2ray:
+                target_host = '127.0.0.1:2080'
+                self.connect_target(target_host)
+                self.target.sendall(self.client_buffer)
+                self.log += f' - V2RAY {target_host}'
+                self.server.printLog(self.log)
+                self.doCONNECT(ssh_established=True)
             else:
                 # Force target to localhost to avoid open-proxy abuse while parsing target port
                 _, _, port = hostPort.partition(':')
@@ -229,29 +270,30 @@ class ConnectionHandler(threading.Thread):
                 if leftover:
                     self.target.sendall(leftover)
                 
-                # Send appropriate response back to client
-                if is_connect:
-                    self.client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
-                else:
-                    sec_ws_key = self.findHeader(self.client_buffer, b'Sec-WebSocket-Key')
-                    if sec_ws_key:
-                        magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-                        accept_val = base64.b64encode(hashlib.sha1((sec_ws_key + magic).encode()).digest()).decode()
-                        dyn_response = (
-                            b'HTTP/1.1 101 Switching Protocols\r\n'
-                            b'Upgrade: websocket\r\n'
-                            b'Connection: Upgrade\r\n'
-                            b'Server: rbstv-Proxy\r\n'
-                            b'Sec-WebSocket-Accept: ' + accept_val.encode() + b'\r\n\r\n'
-                        )
-                        self.client.sendall(dyn_response)
+                # Send appropriate response back to client if HTTP request
+                if is_http:
+                    if is_connect:
+                        self.client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
                     else:
-                        self.client.sendall(RESPONSE)
+                        sec_ws_key = self.findHeader(self.client_buffer, b'Sec-WebSocket-Key')
+                        if sec_ws_key:
+                            magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                            accept_val = base64.b64encode(hashlib.sha1((sec_ws_key + magic).encode()).digest()).decode()
+                            dyn_response = (
+                                b'HTTP/1.1 101 Switching Protocols\r\n'
+                                b'Upgrade: websocket\r\n'
+                                b'Connection: Upgrade\r\n'
+                                b'Server: rbstv-Proxy\r\n'
+                                b'Sec-WebSocket-Accept: ' + accept_val.encode() + b'\r\n\r\n'
+                            )
+                            self.client.sendall(dyn_response)
+                        else:
+                            self.client.sendall(RESPONSE)
                 
                 # Log and start forwarding
                 self.log += f' - CONNECT {target_host}'
                 self.server.printLog(self.log)
-                self.doCONNECT(ssh_established=(ssh_idx != -1))
+                self.doCONNECT(ssh_established=(ssh_idx != -1 or not is_http))
         except Exception as e:
             self.server.printLog(f'Error: {e}')
         finally:
@@ -332,16 +374,28 @@ def parse_args(argv):
 def main():
     print("\n:-------PythonProxy-------:")
     print(f"Listening addr: {LISTENING_ADDR}")
-    print(f"Listening port: {LISTENING_PORT}\n")
+    print(f"Listening port: {LISTENING_PORT}")
     print(":-------------------------:")
-    server = Server(LISTENING_ADDR, LISTENING_PORT)
+    
+    # Start default port server (plaintext)
+    server = Server(LISTENING_ADDR, LISTENING_PORT, use_ssl=False)
     server.start()
+    
+    # If default port is 700, also start the SSL server on port 701 for TLS multiplexing
+    ssl_server = None
+    if LISTENING_PORT == 700:
+        print(f"Listening SSL port: 701")
+        ssl_server = Server(LISTENING_ADDR, 701, use_ssl=True)
+        ssl_server.start()
+        
     try:
         while True:
             time.sleep(2)
     except KeyboardInterrupt:
         print('Stopping...')
         server.close()
+        if ssl_server:
+            ssl_server.close()
 
 if __name__ == '__main__':
     parse_args(sys.argv[1:])
