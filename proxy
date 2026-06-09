@@ -226,6 +226,16 @@ class ConnectionHandler(threading.Thread):
                 except:
                     pass
                 
+                # Filter out any injected fake HTTP response/request payloads in leftover
+                if leftover:
+                    leftover_lower = leftover.lower()
+                    if b'http/' in leftover_lower or b'get ' in leftover_lower or b'post ' in leftover_lower:
+                        actual_ssh_idx = leftover_lower.find(b'ssh-')
+                        if actual_ssh_idx != -1:
+                            leftover = leftover[actual_ssh_idx:]
+                        else:
+                            leftover = b''
+                
                 # Send any leftover data to target
                 if leftover:
                     self.target.sendall(leftover)
@@ -287,6 +297,15 @@ class ConnectionHandler(threading.Thread):
                 try:
                     data = in_.recv(BUFLEN)
                     if data:
+                        if in_ is self.client:
+                            # Filter out fake HTTP response/request payloads (e.g. HTTP/1.1 200 OK)
+                            data_lower = data.lower()
+                            if b'http/' in data_lower or b'get ' in data_lower or b'post ' in data_lower:
+                                ssh_idx = data_lower.find(b'ssh-')
+                                if ssh_idx != -1:
+                                    data = data[ssh_idx:]
+                                else:
+                                    continue
                         (self.client if in_ is self.target else self.target).sendall(data)
                         count = 0
                     else:
