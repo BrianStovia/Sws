@@ -214,10 +214,7 @@ dropbearkey -t dss -f /etc/dropbear/dropbear_dss_host_key
 rm -f /etc/dropbear/dropbear_ecdsa_host_key
 dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key
 cat>  /etc/default/dropbear << END
-# All configuration by FN Project / Rerechan02
-# Dinda Putri Cindyani
-# disabled because OpenSSH is installed
-# change to NO_START=0 to enable Dropbear
+
 NO_START=0
 # the TCP port that Dropbear listens on
 DROPBEAR_PORT=111
@@ -734,6 +731,41 @@ systemctl daemon-reload
 systemctl enable ssh-limit.timer
 systemctl start ssh-limit.timer
 
+# Setup SlowDNS
+echo "Installing and configuring SlowDNS..."
+mkdir -p /etc/slowdns
+echo "ns.${domain}" > /etc/slowdns/nameserver
+
+# Download prebuilt dnstt dns-server
+wget -q -O /usr/sbin/dns-server "https://github.com/powermx/dnstt/raw/refs/heads/main/dns-server"
+chmod +x /usr/sbin/dns-server
+
+# Generate key pair
+/usr/sbin/dns-server -gen-key -privkey-file /etc/slowdns/server.key -pubkey-file /etc/slowdns/server.pub
+
+# Create Systemd Service for dnstt
+cat > /etc/systemd/system/dnstt.service << EOF
+[Unit]
+Description=SlowDNS rbstv Autoscript Service
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+User=root
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/sbin/dns-server -udp :5300 -privkey-file /etc/slowdns/server.key ns.${domain} 127.0.0.1:111
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable dnstt
+systemctl restart dnstt
+
 
 
 # Get main network interface
@@ -755,6 +787,12 @@ iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 80 -j REDIREC
 
 # Open TCP port 8443 for Xray Reality
 iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
+
+# Redirect UDP 53 ke UDP 5300 untuk SlowDNS
+iptables -t nat -A PREROUTING -i $primary_interface -p udp --dport 53 -j REDIRECT --to-port 5300
+
+# Open UDP port 5300 for SlowDNS
+iptables -A INPUT -p udp --dport 5300 -j ACCEPT
 
 iptables-save > /etc/iptables/rules.v4
 
@@ -798,6 +836,12 @@ clear
 # rm -f /root/* # Disabled to protect local files and workspace from accidental deletion
 
 echo -e "menu" >> /root/.profile
+pub_key=$(cat /etc/slowdns/server.pub 2>/dev/null)
 clear
-echo -e "Success Install"
+echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "          Success Install          "
+echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e " SlowDNS Nameserver : ns.${domain}"
+echo -e " SlowDNS Public Key : ${pub_key}"
+echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 exit 0
