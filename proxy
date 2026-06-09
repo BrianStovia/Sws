@@ -174,33 +174,12 @@ class ConnectionHandler(threading.Thread):
                 http_payload = self.client_buffer
                 leftover = b''
             
-            # Split HTTP payload by double CRLF
-            parts_buffer = http_payload.split(b'\r\n\r\n')
-            parts = [p for p in parts_buffer if p.strip()]
+            # Determine if request uses CONNECT method
+            is_connect = b'connect' in self.client_buffer.lower()
             
-            # Find which part contains the upgrade header or CONNECT method
-            real_req = None
-            for part in reversed(parts):
-                part_lower = part.lower()
-                if b'upgrade' in part_lower or part_lower.startswith(b'connect'):
-                    real_req = part
-                    break
-            
-            if real_req is None:
-                real_req = parts[-1] if parts else b''
-            
-            # Parse target from the real request
-            first_line = real_req.split(b'\r\n')[0].decode(errors='ignore')
-            first_line_parts = first_line.split()
-            is_connect = False
-            request_host = ''
-            if len(first_line_parts) >= 2:
-                if first_line_parts[0].upper() == 'CONNECT':
-                    is_connect = True
-                    request_host = first_line_parts[1]
-            
-            hostPort = request_host or self.findHeader(real_req, b'X-Real-Host') or self.findHeader(real_req, b'Host') or DEFAULT_HOST
-            passwd = self.findHeader(real_req, b'X-Pass')
+            # Directly parse Host / X-Real-Host from the entire buffer for maximum payload compatibility
+            hostPort = self.findHeader(self.client_buffer, b'X-Real-Host') or self.findHeader(self.client_buffer, b'Host') or DEFAULT_HOST
+            passwd = self.findHeader(self.client_buffer, b'X-Pass')
  
             if PASS and passwd != PASS:
                 self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
@@ -244,7 +223,7 @@ class ConnectionHandler(threading.Thread):
                 if is_connect:
                     self.client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
                 else:
-                    sec_ws_key = self.findHeader(real_req, b'Sec-WebSocket-Key')
+                    sec_ws_key = self.findHeader(self.client_buffer, b'Sec-WebSocket-Key')
                     if sec_ws_key:
                         magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
                         accept_val = base64.b64encode(hashlib.sha1((sec_ws_key + magic).encode()).digest()).decode()
