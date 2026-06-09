@@ -177,8 +177,18 @@ class ConnectionHandler(threading.Thread):
             # Determine if request uses CONNECT method
             is_connect = b'connect' in self.client_buffer.lower()
             
+            # Parse request_host if there's a CONNECT line
+            request_host = ''
+            for line in self.client_buffer.split(b'\n'):
+                line = line.strip()
+                if line.lower().startswith(b'connect '):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        request_host = parts[1].decode(errors='ignore')
+                        break
+            
             # Directly parse Host / X-Real-Host from the entire buffer for maximum payload compatibility
-            hostPort = self.findHeader(self.client_buffer, b'X-Real-Host') or self.findHeader(self.client_buffer, b'Host') or DEFAULT_HOST
+            hostPort = request_host or self.findHeader(self.client_buffer, b'X-Real-Host') or self.findHeader(self.client_buffer, b'Host') or DEFAULT_HOST
             passwd = self.findHeader(self.client_buffer, b'X-Pass')
  
             if PASS and passwd != PASS:
@@ -251,7 +261,8 @@ class ConnectionHandler(threading.Thread):
     def findHeader(self, head, header):
         head = head.decode(errors='ignore')
         header = header.decode(errors='ignore').lower()
-        for line in head.split('\r\n'):
+        for line in head.split('\n'):
+            line = line.strip('\r\n ')
             if line.lower().startswith(header + ':'):
                 return line.split(':', 1)[1].strip()
         return ''
