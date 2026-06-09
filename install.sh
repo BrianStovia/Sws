@@ -163,6 +163,10 @@ systemctl daemon-reload
 systemctl restart ssh
 systemctl restart sshd
 
+# Disable rpcbind and rpcbind.socket to prevent port 111 conflict with dropbear
+systemctl stop rpcbind rpcbind.socket 2>/dev/null || true
+systemctl disable rpcbind rpcbind.socket 2>/dev/null || true
+
 # Installasi Dropbear
 apt install dropbear -y
 rm /etc/default/dropbear
@@ -367,7 +371,7 @@ fi
 apt install nginx -y
 rm -f /etc/nginx/nginx.conf
 get_file "nginx.conf" "/etc/nginx/nginx.conf"
-sed -i "s|server_name fn.com;|server_name $domain;|" /etc/nginx/nginx.conf
+sed -i "s|server_name .*;|server_name $domain;|" /etc/nginx/nginx.conf
 systemctl stop nginx
 systemctl disable nginx
 
@@ -585,6 +589,16 @@ echo -e "${domain}" > /usr/local/etc/v2ray/domain
         fi
     fi
     /root/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /usr/local/etc/v2ray/v2ray.crt --keypath /usr/local/etc/v2ray/v2ray.key --ecc
+
+    # Fallback to self-signed certificate if acme.sh failed to create the certificate
+    if [ ! -f "/usr/local/etc/v2ray/v2ray.crt" ] || [ ! -f "/usr/local/etc/v2ray/v2ray.key" ]; then
+        echo "SSL certificate not found. Generating self-signed certificate as fallback..."
+        mkdir -p /usr/local/etc/v2ray
+        openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
+            -subj "/C=ID/ST=Jakarta/L=Jakarta/O=FNProject/CN=${domain}" \
+            -keyout /usr/local/etc/v2ray/v2ray.key \
+            -out /usr/local/etc/v2ray/v2ray.crt 2>/dev/null
+    fi
 
 cd /root
 
