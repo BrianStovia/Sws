@@ -540,13 +540,7 @@ priv_key=$(echo "$reality_keys" | grep "PrivateKey:" | awk '{print $2}')
 pub_key=$(echo "$reality_keys" | grep "PublicKey" | awk '{print $3}')
 short_id=$(head /dev/urandom | tr -dc 'a-f0-9' | head -c 16)
 
-echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-echo -e "$green       Configure Reality SNI         $NC"
-echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-read -p " Reality SNIs (comma-separated, Default: yahoo.com,www.yahoo.com) : " reality_sni
-if [[ -z "$reality_sni" ]]; then
-    reality_sni="yahoo.com,www.yahoo.com"
-fi
+reality_sni="yahoo.com,www.yahoo.com"
 
 first_sni=$(echo "$reality_sni" | cut -d',' -f1)
 reality_dest="${first_sni}:443"
