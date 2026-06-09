@@ -154,6 +154,15 @@ apt install zip -y
 apt install unzip -y
 apt install bc -y
 
+# Ensure standard systemd system users exist to prevent 217/USER boot failures
+for sys_user in systemd-network systemd-resolve systemd-timesync; do
+    if ! getent passwd "$sys_user" >/dev/null; then
+        echo "Creating missing systemd user: $sys_user"
+        groupadd -r "$sys_user" 2>/dev/null || true
+        useradd -r -g "$sys_user" -d /run/systemd -s /usr/sbin/nologin "$sys_user" 2>/dev/null || true
+    fi
+done
+
 # Setup Banner SSH
 sed -i '/^#\?Banner /c\Banner /etc/issue.net' /etc/ssh/sshd_config
 rm -f /etc/issue.net
