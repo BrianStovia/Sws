@@ -284,7 +284,7 @@ class ConnectionHandler(threading.Thread):
                 # Send appropriate response back to client if HTTP request
                 if is_http:
                     if is_connect:
-                        self.client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+                        self.client.sendall(b'HTTP/1.1 200 OK\r\n\r\n')
                     else:
                         sec_ws_key = self.findHeader(self.client_buffer, b'Sec-WebSocket-Key')
                         if sec_ws_key:
